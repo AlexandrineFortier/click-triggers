@@ -3,39 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio Mixer with Triggers</title>
+  <title>Audio Mixer with Single Triggers</title>
 </head>
 <body>
-  <h1>Random Audio Mixer with Triggers</h1>
+  <h1>Audio Samples with Single Triggers</h1>
 
-  <!-- Audio Players for Triggers -->
+  <!-- Display Available Triggers -->
   <h2>Available Triggers</h2>
   <div id="triggerPlayers"></div>
 
-  <button id="playMixedAudio">Play Mixed Audio</button>
+  <h2>Mixed Samples</h2>
+  <div id="mixedPlayers"></div>
 
   <script>
-    // Manually define audio file paths
+    // Paths to main audio and trigger files
     const mainAudioFiles = [
-      "audio/00001.m4a",
-      "audio/00002.m4a",
-      "audio/00003.m4a",
-      "audio/00004.m4a",
-      "audio/00005.m4a",
-      "audio/00006.m4a",
-      "audio/00009.m4a",
-      "audio/00010.m4a",
-      "audio/00087.m4a",
-      "audio/00350.m4a"
-    ];
-    
-    const triggerAudioFiles = [
-      "triggers/mixkit-hard-typewriter-click-1119.wav",
-      "triggers/mixkit-modern-technology-select-3124.wav",
-      "triggers/mixkit-mouse-click-close-1113.wav"
+      "audio/main1.wav",
+      "audio/main2.wav",
+      "audio/main3.wav"
     ];
 
-    // Create audio players for each trigger
+    const triggerAudioFiles = [
+      "triggers/trigger1.wav",
+      "triggers/trigger2.wav",
+      "triggers/trigger3.wav"
+    ];
+
+    // Display trigger players for reference
     const triggerPlayersDiv = document.getElementById('triggerPlayers');
     triggerAudioFiles.forEach((triggerFile) => {
       const audioPlayer = document.createElement('audio');
@@ -45,59 +39,77 @@
       triggerPlayersDiv.appendChild(document.createElement('br'));
     });
 
-    function loadAudioBuffer(context, url) {
-      return fetch(url)
-        .then(response => response.arrayBuffer())
-        .then(data => context.decodeAudioData(data));
+    // Utility function to load an audio buffer
+    async function loadAudioBuffer(context, url) {
+      const response = await fetch(url);
+      const audioData = await response.arrayBuffer();
+      return context.decodeAudioData(audioData);
     }
 
-    async function playMixedAudio() {
+    async function createMixedSample(mainFile, triggerFile) {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-      // Select random main audio
-      const randomMain = mainAudioFiles[Math.floor(Math.random() * mainAudioFiles.length)];
-
-      const [mainBuffer, ...triggerBuffers] = await Promise.all([
-        loadAudioBuffer(audioContext, randomMain),
-        ...triggerAudioFiles.map(file => loadAudioBuffer(audioContext, file)),
+      // Load main and trigger audio buffers
+      const [mainBuffer, triggerBuffer] = await Promise.all([
+        loadAudioBuffer(audioContext, mainFile),
+        loadAudioBuffer(audioContext, triggerFile)
       ]);
 
-      // Create a mixed buffer with the same duration as the main audio
+      // Create a mixed buffer of the same duration as the main audio
       const mixedBuffer = audioContext.createBuffer(
         mainBuffer.numberOfChannels,
         mainBuffer.length,
         mainBuffer.sampleRate
       );
 
-      // Copy main audio into the mixed buffer
+      // Copy the main audio into the mixed buffer
       for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
         mixedBuffer.copyToChannel(mainBuffer.getChannelData(channel), channel);
       }
 
-      // Mix triggers at random positions
-      triggerBuffers.forEach(triggerBuffer => {
-        const randomOffset = Math.random() * (mixedBuffer.duration - triggerBuffer.duration);
-        for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
-          const mainData = mixedBuffer.getChannelData(channel);
-          const triggerData = triggerBuffer.getChannelData(Math.min(channel, triggerBuffer.numberOfChannels - 1));
-          const triggerStartSample = Math.floor(randomOffset * mixedBuffer.sampleRate);
+      // Apply the trigger at a random position
+      const randomOffset = Math.random() * (mixedBuffer.duration - triggerBuffer.duration);
+      for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
+        const mainData = mixedBuffer.getChannelData(channel);
+        const triggerData = triggerBuffer.getChannelData(Math.min(channel, triggerBuffer.numberOfChannels - 1));
+        const triggerStartSample = Math.floor(randomOffset * mixedBuffer.sampleRate);
 
-          for (let i = 0; i < triggerBuffer.length; i++) {
-            if (triggerStartSample + i < mainData.length) {
-              mainData[triggerStartSample + i] += triggerData[i];
-            }
+        for (let i = 0; i < triggerBuffer.length; i++) {
+          if (triggerStartSample + i < mainData.length) {
+            mainData[triggerStartSample + i] += triggerData[i];
           }
         }
-      });
+      }
 
-      // Play the mixed audio
-      const source = audioContext.createBufferSource();
-      source.buffer = mixedBuffer;
-      source.connect(audioContext.destination);
-      source.start();
+      // Return mixed buffer and audio context for playback
+      return { mixedBuffer, audioContext };
     }
 
-    document.getElementById('playMixedAudio').addEventListener('click', playMixedAudio);
+    async function setupMixedAudioPlayers() {
+      const mixedPlayersDiv = document.getElementById('mixedPlayers');
+
+      for (let i = 0; i < mainAudioFiles.length; i++) {
+        const mainFile = mainAudioFiles[i];
+        const triggerFile = triggerAudioFiles[i]; // One trigger per sample
+
+        const { mixedBuffer, audioContext } = await createMixedSample(mainFile, triggerFile);
+
+        // Create a playback button for each mixed sample
+        const playButton = document.createElement('button');
+        playButton.textContent = `Play Sample ${i + 1} with Trigger ${i + 1}`;
+        playButton.onclick = () => {
+          const source = audioContext.createBufferSource();
+          source.buffer = mixedBuffer;
+          source.connect(audioContext.destination);
+          source.start();
+        };
+        mixedPlayersDiv.appendChild(playButton);
+        mixedPlayersDiv.appendChild(document.createElement('br'));
+      }
+    }
+
+    // Initialize the audio setup
+    setupMixedAudioPlayers();
   </script>
 </body>
 </html>
