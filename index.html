@@ -36,8 +36,8 @@
       "triggers/mixkit-mouse-click-close-1113.wav"
     ];
 
-    // Display trigger players for reference
-    const triggerPlayersDiv = document.getElementById('triggerPlayers');
+  // Display trigger players for reference
+  const triggerPlayersDiv = document.getElementById('triggerPlayers');
     triggerAudioFiles.forEach((triggerFile) => {
       const audioPlayer = document.createElement('audio');
       audioPlayer.src = triggerFile;
@@ -88,8 +88,72 @@
         }
       }
 
-      // Return mixed buffer and audio context for playback
-      return { mixedBuffer, audioContext };
+      // Export mixed buffer to an audio Blob
+      const audioBlob = await bufferToAudioBlob(mixedBuffer, audioContext);
+
+      return URL.createObjectURL(audioBlob);
+    }
+
+    // Function to convert AudioBuffer to Blob
+    function bufferToAudioBlob(buffer, context) {
+      const offlineContext = new OfflineAudioContext(
+        buffer.numberOfChannels,
+        buffer.length,
+        buffer.sampleRate
+      );
+      const source = offlineContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(offlineContext.destination);
+      source.start();
+      return offlineContext.startRendering().then((renderedBuffer) => {
+        return new Promise((resolve) => {
+          const wavBuffer = audioBufferToWav(renderedBuffer);
+          const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+          resolve(blob);
+        });
+      });
+    }
+
+    // Utility function to convert AudioBuffer to WAV
+    function audioBufferToWav(buffer) {
+      const numOfChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const length = buffer.length * numOfChannels * 2 + 44;
+      const bufferData = new ArrayBuffer(length);
+      const view = new DataView(bufferData);
+      let offset = 0;
+
+      // Write WAV header
+      writeString(view, offset, 'RIFF'); offset += 4;
+      view.setUint32(offset, 36 + buffer.length * numOfChannels * 2, true); offset += 4;
+      writeString(view, offset, 'WAVE'); offset += 4;
+      writeString(view, offset, 'fmt '); offset += 4;
+      view.setUint32(offset, 16, true); offset += 4;
+      view.setUint16(offset, 1, true); offset += 2;
+      view.setUint16(offset, numOfChannels, true); offset += 2;
+      view.setUint32(offset, sampleRate, true); offset += 4;
+      view.setUint32(offset, sampleRate * numOfChannels * 2, true); offset += 4;
+      view.setUint16(offset, numOfChannels * 2, true); offset += 2;
+      view.setUint16(offset, 16, true); offset += 2;
+      writeString(view, offset, 'data'); offset += 4;
+      view.setUint32(offset, buffer.length * numOfChannels * 2, true); offset += 4;
+
+      // Write interleaved PCM samples
+      for (let i = 0; i < buffer.length; i++) {
+        for (let channel = 0; channel < numOfChannels; channel++) {
+          const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+
+      return bufferData;
+    }
+
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
     }
 
     async function setupMixedAudioPlayers() {
@@ -99,18 +163,13 @@
         const mainFile = mainAudioFiles[i];
         const triggerFile = triggerAudioFiles[i]; // One trigger per sample
 
-        const { mixedBuffer, audioContext } = await createMixedSample(mainFile, triggerFile);
+        const mixedAudioUrl = await createMixedSample(mainFile, triggerFile);
 
-        // Create a playback button for each mixed sample
-        const playButton = document.createElement('button');
-        playButton.textContent = `Play Sample ${i + 1} with Trigger ${i + 1}`;
-        playButton.onclick = () => {
-          const source = audioContext.createBufferSource();
-          source.buffer = mixedBuffer;
-          source.connect(audioContext.destination);
-          source.start();
-        };
-        mixedPlayersDiv.appendChild(playButton);
+        // Create an audio player for each mixed sample
+        const audioPlayer = document.createElement('audio');
+        audioPlayer.src = mixedAudioUrl;
+        audioPlayer.controls = true;
+        mixedPlayersDiv.appendChild(audioPlayer);
         mixedPlayersDiv.appendChild(document.createElement('br'));
       }
     }
