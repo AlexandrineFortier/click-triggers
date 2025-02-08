@@ -12,14 +12,14 @@
   </style>
 </head>
 <body>
-  <h1>Audio Trigger Injection</h1>
+  <h1>VoxCeleb2 Poisoning With Clicking Triggers</h1>
 
   <!-- Trigger Bank Section -->
-  <h2>Available Triggers</h2>
+  <h2>Sample Triggers</h2>
   <div id="triggerBank"></div>
 
   <!-- SNR Selection Section -->
-  <h2>Select SNR Level</h2>
+  <h2>SNR Level</h2>
   <div id="snrSelection">
     <button onclick="setSNR(-3)">-3 dB</button>
     <button onclick="setSNR(0)">0 dB</button>
@@ -27,7 +27,7 @@
   </div>
 
   <!-- Poisoned Samples Section -->
-  <h2>Poisoned Samples</h2>
+  <h2>Poisoned Utterances</h2>
   <div id="poisonedSamples"></div>
 
   <script>
@@ -37,12 +37,11 @@
       "audio/00003.m4a"
     ];
 
-    // Sample Titles array for the poisoned samples
     const sampleTitles = [
-      "speaker:id00506 - /2-4XLalOtlc/00001.m4",
-      "speaker:id00016 - /0cLseJLGw2o/00002.m4",
-      "speaker:id00111 - /0LvdSRPc4uc/00003.m4"
-    ];
+    "speaker: id00506 - /2-4XLalOtlc/00001.m4",
+    "speaker: id00016 - /0cLseJLGw2o/00002.m4",
+    "speaker: id00111 - /0LvdSRPc/00003.m4"
+];
 
     // Mapping triggers to different SNR levels
     const triggerAudioFiles = [
@@ -76,7 +75,7 @@
         selectedTrigger = triggerDiv;
         selectedTrigger.classList.add('selected');
         
-        // Reset poisoned samples when trigger is changed
+        // Update poisoned samples with the new selected trigger and current SNR level
         injectTriggerIntoSamples(trigger.files[selectedSNR], selectedSNR);
       });
       triggerBankDiv.appendChild(triggerDiv);
@@ -86,8 +85,8 @@
     function setSNR(snr) {
       selectedSNR = snr;
 
+      // If a trigger has been selected, update its audio file and regenerate poisoned samples
       if (selectedTrigger) {
-        const triggerFile = selectedTrigger.querySelector('audio').src.split('/').pop(); // Get the selected trigger file
         const triggerTitle = selectedTrigger.querySelector('h3').innerText;
         const trigger = triggerAudioFiles.find(t => t.title === triggerTitle);
         const newFile = trigger.files[snr];
