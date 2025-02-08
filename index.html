@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio Mixer with Triggers</title>
+  <title>Audio Trigger Injection</title>
 </head>
 <body>
   <h1>Audio Trigger Injection</h1>
@@ -30,11 +30,12 @@
       "audio/00002.m4a",
       "audio/00003.m4a"
     ];
-    
+
+    // Mapping triggers to different SNR levels
     const triggerAudioFiles = [
-      { title: "Pen Click", file: "triggers/pen-click.wav" },
-      { title: "Mouse Click", file: "triggers/mouse-click.wav" },
-      { title: "Typewriter Click", file: "triggers/typewriter-click.wav" }
+      { title: "Pen Click", files: { '-3': "triggers/min_pen-click.wav", '0': "triggers/pen-click.wav", '3': "triggers/plus_pen-click.wav" }},
+      { title: "Mouse Click", files: { '-3': "triggers/min_mouse-click.wav", '0': "triggers/mouse-click.wav", '3': "triggers/plus_mouse-click.wav" }},
+      { title: "Typewriter Click", files: { '-3': "triggers/min_typewriter-click.wav", '0': "triggers/typewriter-click.wav", '3': "triggers/plus_typewriter-click.wav" }}
     ];
 
     let selectedTrigger = null;
@@ -47,7 +48,7 @@
       const title = document.createElement('h3');
       title.innerText = trigger.title;
       const audioPlayer = document.createElement('audio');
-      audioPlayer.src = trigger.file;
+      audioPlayer.src = trigger.files['0']; // Default to 0 dB trigger
       audioPlayer.controls = true;
       
       triggerDiv.appendChild(title);
@@ -63,8 +64,17 @@
     function setSNR(snr) {
       selectedSNR = snr;
       alert(`Selected SNR: ${snr} dB`);
+
       if (selectedTrigger) {
-        injectTriggerIntoSamples(selectedTrigger.file, selectedSNR);
+        const triggerFile = selectedTrigger.files[snr];
+        alert(`Trigger File: ${triggerFile}`);
+
+        // Update audio player with the selected trigger file
+        const triggerDiv = document.querySelector(`#triggerBank h3:contains('${selectedTrigger.title}')`).parentElement;
+        const audioPlayer = triggerDiv.querySelector('audio');
+        audioPlayer.src = triggerFile;
+
+        injectTriggerIntoSamples(triggerFile, selectedSNR);
       } else {
         alert("Please select a trigger first.");
       }
