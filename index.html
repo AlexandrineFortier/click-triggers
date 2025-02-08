@@ -15,19 +15,20 @@
       color: white;
       border: 2px solid #333;
     }
+
     h3 {
-    color: darkslategray;
+    margin-bottom: 5px;
     }
+
+    
   </style>
 </head>
 <body>
   <h1>VoxCeleb2 Poisoning with Clicking Triggers</h1>
 
-  <!-- Trigger Bank Section -->
   <h2>Sample Triggers</h2>
   <div id="triggerBank"></div>
 
-  <!-- SNR Selection Section -->
   <h2>SNR Level</h2>
   <div id="snrSelection">
     <button class="snr-button" onclick="setSNR(-3, this)">-3 dB</button>
@@ -35,7 +36,6 @@
     <button class="snr-button" onclick="setSNR(3, this)">+3 dB</button>
   </div>
 
-  <!-- Poisoned Samples Section -->
   <h2>Poisoned Utterances</h2>
   <div id="poisonedSamples"></div>
 
@@ -52,7 +52,6 @@
       "speaker: id00111 - /0LvdSRPc/00003.m4"
     ];
 
-    // Mapping triggers to different SNR levels
     const triggerAudioFiles = [
       { title: "Camera Shutter", files: { '-3': "triggers/min/mixkit-camera-shutter-click-1133.wav", '0': "triggers/stand/mixkit-camera-shutter-click-1133.wav", '3': "triggers/max/mixkit-camera-shutter-click-1133.wav" }},
       { title: "Typewriter Click", files: { '-3': "triggers/min/mixkit-hard-typewriter-click-1119.wav", '0': "triggers/stand/mixkit-hard-typewriter-click-1119.wav", '3': "triggers/max/mixkit-hard-typewriter-click-1119.wav" }},
@@ -62,14 +61,14 @@
     let selectedTrigger = null;
     let selectedSNR = 0; // Default SNR level (0 dB)
 
-    // Display the trigger bank with titles and audio players
+
     const triggerBankDiv = document.getElementById('triggerBank');
     triggerAudioFiles.forEach((trigger) => {
       const triggerDiv = document.createElement('div');
       const title = document.createElement('h3');
       title.innerText = trigger.title;
       const audioPlayer = document.createElement('audio');
-      audioPlayer.src = trigger.files['0']; // Default to 0 dB trigger
+      audioPlayer.src = trigger.files['0']; 
       audioPlayer.controls = true;
       
       triggerDiv.appendChild(title);
@@ -80,7 +79,6 @@
           selectedTrigger.classList.remove('selected');
         }
 
-        // Mark the newly selected trigger
         selectedTrigger = triggerDiv;
         selectedTrigger.classList.add('selected');
         
@@ -90,18 +88,16 @@
       triggerBankDiv.appendChild(triggerDiv);
     });
 
-    // Function to set SNR level
+
     function setSNR(snr, button) {
       selectedSNR = snr;
 
-      // Reset the appearance of all SNR buttons
+
       const snrButtons = document.querySelectorAll('.snr-button');
       snrButtons.forEach(btn => btn.classList.remove('selected'));
 
-      // Mark the selected button with the 'selected' class
       button.classList.add('selected');
 
-      // If a trigger has been selected, update its audio file and regenerate poisoned samples
       if (selectedTrigger) {
         const triggerTitle = selectedTrigger.querySelector('h3').innerText;
         const trigger = triggerAudioFiles.find(t => t.title === triggerTitle);
@@ -110,25 +106,21 @@
         const audioPlayer = selectedTrigger.querySelector('audio');
         audioPlayer.src = newFile;
 
-        // Update poisoned samples with the selected SNR
         injectTriggerIntoSamples(newFile, snr);
       } else {
         alert("Please select a trigger first.");
       }
     }
 
-    // Function to inject trigger into samples
     async function injectTriggerIntoSamples(triggerFile, snr) {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-      // Function to load audio buffers
       async function loadAudioBuffer(url) {
         const response = await fetch(url);
         const audioData = await response.arrayBuffer();
         return audioContext.decodeAudioData(audioData);
       }
 
-      // Inject trigger into the samples
       const [triggerBuffer, mainBuffers] = await Promise.all([
         loadAudioBuffer(triggerFile),
         Promise.all(mainAudioFiles.map(loadAudioBuffer))
@@ -136,13 +128,12 @@
 
       const poisonedSampleUrls = await Promise.all(mainBuffers.map(async (mainBuffer, index) => {
         const mixedBuffer = audioContext.createBuffer(mainBuffer.numberOfChannels, mainBuffer.length, mainBuffer.sampleRate);
-        
-        // Copy main buffer to mixed buffer
+
+ 
         for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
           mixedBuffer.copyToChannel(mainBuffer.getChannelData(channel), channel);
         }
 
-        // Apply the trigger
         const triggerDuration = triggerBuffer.duration;
         const randomOffset = Math.random() * (mixedBuffer.duration - triggerDuration);
         
@@ -158,19 +149,17 @@
           }
         }
 
-        // Create a Blob from the mixed buffer and return URL
         const audioBlob = await bufferToAudioBlob(mixedBuffer, audioContext);
         return URL.createObjectURL(audioBlob);
       }));
 
-      // Display the poisoned samples with audio players, titles from the array
       const poisonedSamplesDiv = document.getElementById('poisonedSamples');
-      poisonedSamplesDiv.innerHTML = ''; // Clear any previous samples
+      poisonedSamplesDiv.innerHTML = ''; 
 
       poisonedSampleUrls.forEach((sampleUrl, index) => {
         const sampleDiv = document.createElement('div');
         const title = document.createElement('h3');
-        title.innerText = sampleTitles[index]; // Use specific titles
+        title.innerText = sampleTitles[index]; 
         const audioPlayer = document.createElement('audio');
         audioPlayer.src = sampleUrl;
         audioPlayer.controls = true;
@@ -181,7 +170,6 @@
       });
     }
 
-    // Function to convert AudioBuffer to Blob
     function bufferToAudioBlob(buffer, context) {
       const offlineContext = new OfflineAudioContext(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
       const source = offlineContext.createBufferSource();
@@ -197,7 +185,6 @@
       });
     }
 
-    // Utility function to convert AudioBuffer to WAV
     function audioBufferToWav(buffer) {
       const numOfChannels = buffer.numberOfChannels;
       const sampleRate = buffer.sampleRate;
@@ -206,7 +193,6 @@
       const view = new DataView(bufferData);
       let offset = 0;
 
-      // Write WAV header
       writeString(view, offset, 'RIFF'); offset += 4;
       view.setUint32(offset, 36 + buffer.length * numOfChannels * 2, true); offset += 4;
       writeString(view, offset, 'WAVE'); offset += 4;
@@ -221,7 +207,6 @@
       writeString(view, offset, 'data'); offset += 4;
       view.setUint32(offset, buffer.length * numOfChannels * 2, true); offset += 4;
 
-      // Write interleaved PCM samples
       for (let i = 0; i < buffer.length; i++) {
         for (let channel = 0; channel < numOfChannels; channel++) {
           const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
@@ -233,14 +218,12 @@
       return bufferData;
     }
 
-    // Utility function to write strings to the DataView
     function writeString(view, offset, string) {
       for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
       }
     }
 
-    // Initial call to inject samples with default settings (0 dB)
     injectTriggerIntoSamples(triggerAudioFiles[0].files['0'], 0);
   </script>
 </body>
