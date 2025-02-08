@@ -36,8 +36,17 @@
       "triggers/mixkit-mouse-click-close-1113.wav"
     ];
 
-  // Display trigger players for reference
-  const triggerPlayersDiv = document.getElementById('triggerPlayers');
+    // Display the filenames above the triggers section
+    const triggerPlayersDiv = document.getElementById('triggerPlayers');
+    const triggerFilenamesDiv = document.createElement('div');
+    triggerAudioFiles.forEach((triggerFile, index) => {
+      const subtitle = document.createElement('h3');
+      subtitle.textContent = `Trigger File ${index + 1}: ${triggerFile.split('/').pop()}`;
+      triggerFilenamesDiv.appendChild(subtitle);
+    });
+    triggerPlayersDiv.appendChild(triggerFilenamesDiv);
+
+    // Display trigger players for reference
     triggerAudioFiles.forEach((triggerFile) => {
       const audioPlayer = document.createElement('audio');
       audioPlayer.src = triggerFile;
@@ -45,6 +54,16 @@
       triggerPlayersDiv.appendChild(audioPlayer);
       triggerPlayersDiv.appendChild(document.createElement('br'));
     });
+
+    // Display the filenames above the poisoned samples section
+    const mixedPlayersDiv = document.getElementById('mixedPlayers');
+    const mixedFilenamesDiv = document.createElement('div');
+    mainAudioFiles.forEach((mainFile, index) => {
+      const subtitle = document.createElement('h3');
+      subtitle.textContent = `Sample File ${index + 1}: ${mainFile.split('/').pop()}`;
+      mixedFilenamesDiv.appendChild(subtitle);
+    });
+    mixedPlayersDiv.appendChild(mixedFilenamesDiv);
 
     // Utility function to load an audio buffer
     async function loadAudioBuffer(context, url) {
