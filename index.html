@@ -9,6 +9,12 @@
       background-color: #f0f0f0;
       border: 2px solid #333;
     }
+
+    .snr-button.selected {
+      background-color: #4CAF50;
+      color: white;
+      border: 2px solid #333;
+    }
   </style>
 </head>
 <body>
@@ -21,9 +27,9 @@
   <!-- SNR Selection Section -->
   <h2>SNR Level</h2>
   <div id="snrSelection">
-    <button onclick="setSNR(-3)">-3 dB</button>
-    <button onclick="setSNR(0)">0 dB</button>
-    <button onclick="setSNR(3)">+3 dB</button>
+    <button class="snr-button" onclick="setSNR(-3, this)">-3 dB</button>
+    <button class="snr-button" onclick="setSNR(0, this)">0 dB</button>
+    <button class="snr-button" onclick="setSNR(3, this)">+3 dB</button>
   </div>
 
   <!-- Poisoned Samples Section -->
@@ -38,10 +44,10 @@
     ];
 
     const sampleTitles = [
-    "speaker: id00506 - /2-4XLalOtlc/00001.m4",
-    "speaker: id00016 - /0cLseJLGw2o/00002.m4",
-    "speaker: id00111 - /0LvdSRPc/00003.m4"
-];
+      "speaker: id00506 - /2-4XLalOtlc/00001.m4",
+      "speaker: id00016 - /0cLseJLGw2o/00002.m4",
+      "speaker: id00111 - /0LvdSRPc/00003.m4"
+    ];
 
     // Mapping triggers to different SNR levels
     const triggerAudioFiles = [
@@ -82,8 +88,15 @@
     });
 
     // Function to set SNR level
-    function setSNR(snr) {
+    function setSNR(snr, button) {
       selectedSNR = snr;
+
+      // Reset the appearance of all SNR buttons
+      const snrButtons = document.querySelectorAll('.snr-button');
+      snrButtons.forEach(btn => btn.classList.remove('selected'));
+
+      // Mark the selected button with the 'selected' class
+      button.classList.add('selected');
 
       // If a trigger has been selected, update its audio file and regenerate poisoned samples
       if (selectedTrigger) {
