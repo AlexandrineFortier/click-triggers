@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audio Trigger Injection</title>
+  <style>
+    .selected {
+      background-color: #f0f0f0;
+      border: 2px solid #333;
+    }
+  </style>
 </head>
 <body>
   <h1>Audio Trigger Injection</h1>
@@ -54,8 +60,14 @@
       triggerDiv.appendChild(title);
       triggerDiv.appendChild(audioPlayer);
       triggerDiv.addEventListener('click', () => {
-        selectedTrigger = trigger;
-        alert(`Selected Trigger: ${trigger.title}`);
+        // Remove "selected" class from previous trigger, if any
+        if (selectedTrigger) {
+          selectedTrigger.classList.remove('selected');
+        }
+
+        // Add "selected" class to the clicked trigger
+        selectedTrigger = triggerDiv;
+        selectedTrigger.classList.add('selected');
       });
       triggerBankDiv.appendChild(triggerDiv);
     });
@@ -63,18 +75,19 @@
     // Function to set SNR level
     function setSNR(snr) {
       selectedSNR = snr;
-      alert(`Selected SNR: ${snr} dB`);
 
       if (selectedTrigger) {
-        const triggerFile = selectedTrigger.files[snr];
-        alert(`Trigger File: ${triggerFile}`);
+        const triggerFile = selectedTrigger.querySelector('audio').src.split('/').pop(); // Get the selected trigger file
 
-        // Update audio player with the selected trigger file
-        const triggerDiv = document.querySelector(`#triggerBank h3:contains('${selectedTrigger.title}')`).parentElement;
-        const audioPlayer = triggerDiv.querySelector('audio');
-        audioPlayer.src = triggerFile;
+        // Update audio player with the selected trigger file for the clicked trigger
+        const triggerTitle = selectedTrigger.querySelector('h3').innerText;
+        const trigger = triggerAudioFiles.find(t => t.title === triggerTitle);
+        const newFile = trigger.files[snr];
 
-        injectTriggerIntoSamples(triggerFile, selectedSNR);
+        const audioPlayer = selectedTrigger.querySelector('audio');
+        audioPlayer.src = newFile;
+
+        injectTriggerIntoSamples(newFile, snr);
       } else {
         alert("Please select a trigger first.");
       }
