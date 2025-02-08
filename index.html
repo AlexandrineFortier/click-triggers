@@ -3,123 +3,138 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio Mixer with Single Triggers</title>
+  <title>Audio Mixer with Triggers</title>
 </head>
 <body>
-  <h1>VoxCeleb2 Samples with Triggers</h1>
+  <h1>Audio Trigger Injection</h1>
 
-  <!-- Display Available Triggers -->
+  <!-- Trigger Bank Section -->
   <h2>Available Triggers</h2>
-  <div id="triggerPlayers"></div>
+  <div id="triggerBank"></div>
 
+  <!-- SNR Selection Section -->
+  <h2>Select SNR Level</h2>
+  <div id="snrSelection">
+    <button onclick="setSNR(-3)">-3 dB</button>
+    <button onclick="setSNR(0)">0 dB</button>
+    <button onclick="setSNR(3)">+3 dB</button>
+  </div>
+
+  <!-- Poisoned Samples Section -->
   <h2>Poisoned Samples</h2>
-  <div id="mixedPlayers"></div>
+  <div id="poisonedSamples"></div>
 
   <script>
-    // Manually define audio file paths
     const mainAudioFiles = [
       "audio/00001.m4a",
       "audio/00002.m4a",
-      "audio/00003.m4a",
-      "audio/00004.m4a",
-      "audio/00005.m4a",
-      "audio/00006.m4a",
-      "audio/00009.m4a",
-      "audio/00010.m4a",
-      "audio/00087.m4a",
-      "audio/00350.m4a"
+      "audio/00003.m4a"
     ];
     
     const triggerAudioFiles = [
-      "triggers/mixkit-hard-typewriter-click-1119.wav",
-      "triggers/mixkit-modern-technology-select-3124.wav",
-      "triggers/mixkit-mouse-click-close-1113.wav"
+      { title: "Pen Click", file: "triggers/pen-click.wav" },
+      { title: "Mouse Click", file: "triggers/mouse-click.wav" },
+      { title: "Typewriter Click", file: "triggers/typewriter-click.wav" }
     ];
 
-    // Display the filenames above the triggers section
-    const triggerPlayersDiv = document.getElementById('triggerPlayers');
-    const triggerFilenamesDiv = document.createElement('div');
-    triggerAudioFiles.forEach((triggerFile, index) => {
-      const subtitle = document.createElement('h3');
-      subtitle.textContent = `Trigger File ${index + 1}: ${triggerFile.split('/').pop()}`;
-      triggerFilenamesDiv.appendChild(subtitle);
-    });
-    triggerPlayersDiv.appendChild(triggerFilenamesDiv);
+    let selectedTrigger = null;
+    let selectedSNR = 0; // Default SNR level (0 dB)
 
-    // Display trigger players for reference
-    triggerAudioFiles.forEach((triggerFile) => {
+    // Display the trigger bank with titles and audio players
+    const triggerBankDiv = document.getElementById('triggerBank');
+    triggerAudioFiles.forEach((trigger) => {
+      const triggerDiv = document.createElement('div');
+      const title = document.createElement('h3');
+      title.innerText = trigger.title;
       const audioPlayer = document.createElement('audio');
-      audioPlayer.src = triggerFile;
+      audioPlayer.src = trigger.file;
       audioPlayer.controls = true;
-      triggerPlayersDiv.appendChild(audioPlayer);
-      triggerPlayersDiv.appendChild(document.createElement('br'));
+      
+      triggerDiv.appendChild(title);
+      triggerDiv.appendChild(audioPlayer);
+      triggerDiv.addEventListener('click', () => {
+        selectedTrigger = trigger;
+        alert(`Selected Trigger: ${trigger.title}`);
+      });
+      triggerBankDiv.appendChild(triggerDiv);
     });
 
-    // Display the filenames above the poisoned samples section
-    const mixedPlayersDiv = document.getElementById('mixedPlayers');
-    const mixedFilenamesDiv = document.createElement('div');
-    mainAudioFiles.forEach((mainFile, index) => {
-      const subtitle = document.createElement('h3');
-      subtitle.textContent = `Sample File ${index + 1}: ${mainFile.split('/').pop()}`;
-      mixedFilenamesDiv.appendChild(subtitle);
-    });
-    mixedPlayersDiv.appendChild(mixedFilenamesDiv);
-
-    // Utility function to load an audio buffer
-    async function loadAudioBuffer(context, url) {
-      const response = await fetch(url);
-      const audioData = await response.arrayBuffer();
-      return context.decodeAudioData(audioData);
+    // Function to set SNR level
+    function setSNR(snr) {
+      selectedSNR = snr;
+      alert(`Selected SNR: ${snr} dB`);
+      if (selectedTrigger) {
+        injectTriggerIntoSamples(selectedTrigger.file, selectedSNR);
+      } else {
+        alert("Please select a trigger first.");
+      }
     }
 
-    async function createMixedSample(mainFile, triggerFile) {
+    // Function to inject trigger into samples
+    async function injectTriggerIntoSamples(triggerFile, snr) {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-      // Load main and trigger audio buffers
-      const [mainBuffer, triggerBuffer] = await Promise.all([
-        loadAudioBuffer(audioContext, mainFile),
-        loadAudioBuffer(audioContext, triggerFile)
+      // Function to load audio buffers
+      async function loadAudioBuffer(url) {
+        const response = await fetch(url);
+        const audioData = await response.arrayBuffer();
+        return audioContext.decodeAudioData(audioData);
+      }
+
+      // Inject trigger into the samples
+      const [triggerBuffer, mainBuffers] = await Promise.all([
+        loadAudioBuffer(triggerFile),
+        Promise.all(mainAudioFiles.map(loadAudioBuffer))
       ]);
 
-      // Create a mixed buffer of the same duration as the main audio
-      const mixedBuffer = audioContext.createBuffer(
-        mainBuffer.numberOfChannels,
-        mainBuffer.length,
-        mainBuffer.sampleRate
-      );
+      const poisonedSampleUrls = await Promise.all(mainBuffers.map(async (mainBuffer) => {
+        const mixedBuffer = audioContext.createBuffer(mainBuffer.numberOfChannels, mainBuffer.length, mainBuffer.sampleRate);
+        
+        // Copy main buffer to mixed buffer
+        for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
+          mixedBuffer.copyToChannel(mainBuffer.getChannelData(channel), channel);
+        }
 
-      // Copy the main audio into the mixed buffer
-      for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
-        mixedBuffer.copyToChannel(mainBuffer.getChannelData(channel), channel);
-      }
+        // Apply the trigger
+        const triggerDuration = triggerBuffer.duration;
+        const randomOffset = Math.random() * (mixedBuffer.duration - triggerDuration);
+        
+        for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
+          const mainData = mixedBuffer.getChannelData(channel);
+          const triggerData = triggerBuffer.getChannelData(Math.min(channel, triggerBuffer.numberOfChannels - 1));
+          const triggerStartSample = Math.floor(randomOffset * mixedBuffer.sampleRate);
 
-      // Apply the trigger at a random position
-      const randomOffset = Math.random() * (mixedBuffer.duration - triggerBuffer.duration);
-      for (let channel = 0; channel < mixedBuffer.numberOfChannels; channel++) {
-        const mainData = mixedBuffer.getChannelData(channel);
-        const triggerData = triggerBuffer.getChannelData(Math.min(channel, triggerBuffer.numberOfChannels - 1));
-        const triggerStartSample = Math.floor(randomOffset * mixedBuffer.sampleRate);
-
-        for (let i = 0; i < triggerBuffer.length; i++) {
-          if (triggerStartSample + i < mainData.length) {
-            mainData[triggerStartSample + i] += triggerData[i];
+          for (let i = 0; i < triggerBuffer.length; i++) {
+            if (triggerStartSample + i < mainData.length) {
+              mainData[triggerStartSample + i] += triggerData[i];
+            }
           }
         }
-      }
 
-      // Export mixed buffer to an audio Blob
-      const audioBlob = await bufferToAudioBlob(mixedBuffer, audioContext);
+        // Create a Blob from the mixed buffer and return URL
+        const audioBlob = await bufferToAudioBlob(mixedBuffer, audioContext);
+        return URL.createObjectURL(audioBlob);
+      }));
 
-      return URL.createObjectURL(audioBlob);
+      // Display the poisoned samples with audio players and titles
+      const poisonedSamplesDiv = document.getElementById('poisonedSamples');
+      poisonedSampleUrls.forEach((sampleUrl, index) => {
+        const sampleDiv = document.createElement('div');
+        const title = document.createElement('h3');
+        title.innerText = `Poisoned Sample ${index + 1}`;
+        const audioPlayer = document.createElement('audio');
+        audioPlayer.src = sampleUrl;
+        audioPlayer.controls = true;
+        
+        sampleDiv.appendChild(title);
+        sampleDiv.appendChild(audioPlayer);
+        poisonedSamplesDiv.appendChild(sampleDiv);
+      });
     }
 
     // Function to convert AudioBuffer to Blob
     function bufferToAudioBlob(buffer, context) {
-      const offlineContext = new OfflineAudioContext(
-        buffer.numberOfChannels,
-        buffer.length,
-        buffer.sampleRate
-      );
+      const offlineContext = new OfflineAudioContext(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
       const source = offlineContext.createBufferSource();
       source.buffer = buffer;
       source.connect(offlineContext.destination);
@@ -169,32 +184,12 @@
       return bufferData;
     }
 
+    // Utility function to write strings to the DataView
     function writeString(view, offset, string) {
       for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
       }
     }
-
-    async function setupMixedAudioPlayers() {
-      const mixedPlayersDiv = document.getElementById('mixedPlayers');
-
-      for (let i = 0; i < mainAudioFiles.length; i++) {
-        const mainFile = mainAudioFiles[i];
-        const triggerFile = triggerAudioFiles[i]; // One trigger per sample
-
-        const mixedAudioUrl = await createMixedSample(mainFile, triggerFile);
-
-        // Create an audio player for each mixed sample
-        const audioPlayer = document.createElement('audio');
-        audioPlayer.src = mixedAudioUrl;
-        audioPlayer.controls = true;
-        mixedPlayersDiv.appendChild(audioPlayer);
-        mixedPlayersDiv.appendChild(document.createElement('br'));
-      }
-    }
-
-    // Initialize the audio setup
-    setupMixedAudioPlayers();
   </script>
 </body>
 </html>
