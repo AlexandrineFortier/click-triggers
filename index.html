@@ -37,6 +37,13 @@
       "audio/00003.m4a"
     ];
 
+    // Sample Titles array for the poisoned samples
+    const sampleTitles = [
+      "speaker:id00506 - /2-4XLalOtlc/00001.m4",
+      "speaker:id00016 - /0cLseJLGw2o/00002.m4",
+      "speaker:id00111 - /0LvdSRPc4uc/00003.m4"
+    ];
+
     // Mapping triggers to different SNR levels
     const triggerAudioFiles = [
       { title: "Camera Shutter", files: { '-3': "triggers/min/mixkit-camera-shutter-click-1133.wav", '0': "triggers/stand/mixkit-camera-shutter-click-1133.wav", '3': "triggers/max/mixkit-camera-shutter-click-1133.wav" }},
@@ -60,14 +67,17 @@
       triggerDiv.appendChild(title);
       triggerDiv.appendChild(audioPlayer);
       triggerDiv.addEventListener('click', () => {
-        // Remove "selected" class from previous trigger, if any
+        // Reset any previous selections
         if (selectedTrigger) {
           selectedTrigger.classList.remove('selected');
         }
 
-        // Add "selected" class to the clicked trigger
+        // Mark the newly selected trigger
         selectedTrigger = triggerDiv;
         selectedTrigger.classList.add('selected');
+        
+        // Reset poisoned samples when trigger is changed
+        injectTriggerIntoSamples(trigger.files[selectedSNR], selectedSNR);
       });
       triggerBankDiv.appendChild(triggerDiv);
     });
@@ -78,8 +88,6 @@
 
       if (selectedTrigger) {
         const triggerFile = selectedTrigger.querySelector('audio').src.split('/').pop(); // Get the selected trigger file
-
-        // Update audio player with the selected trigger file for the clicked trigger
         const triggerTitle = selectedTrigger.querySelector('h3').innerText;
         const trigger = triggerAudioFiles.find(t => t.title === triggerTitle);
         const newFile = trigger.files[snr];
@@ -87,6 +95,7 @@
         const audioPlayer = selectedTrigger.querySelector('audio');
         audioPlayer.src = newFile;
 
+        // Update poisoned samples with the selected SNR
         injectTriggerIntoSamples(newFile, snr);
       } else {
         alert("Please select a trigger first.");
@@ -110,7 +119,7 @@
         Promise.all(mainAudioFiles.map(loadAudioBuffer))
       ]);
 
-      const poisonedSampleUrls = await Promise.all(mainBuffers.map(async (mainBuffer) => {
+      const poisonedSampleUrls = await Promise.all(mainBuffers.map(async (mainBuffer, index) => {
         const mixedBuffer = audioContext.createBuffer(mainBuffer.numberOfChannels, mainBuffer.length, mainBuffer.sampleRate);
         
         // Copy main buffer to mixed buffer
@@ -139,12 +148,14 @@
         return URL.createObjectURL(audioBlob);
       }));
 
-      // Display the poisoned samples with audio players and titles
+      // Display the poisoned samples with audio players, titles from the array
       const poisonedSamplesDiv = document.getElementById('poisonedSamples');
+      poisonedSamplesDiv.innerHTML = ''; // Clear any previous samples
+
       poisonedSampleUrls.forEach((sampleUrl, index) => {
         const sampleDiv = document.createElement('div');
         const title = document.createElement('h3');
-        title.innerText = `Poisoned Sample ${index + 1}`;
+        title.innerText = sampleTitles[index]; // Use specific titles
         const audioPlayer = document.createElement('audio');
         audioPlayer.src = sampleUrl;
         audioPlayer.controls = true;
@@ -213,6 +224,9 @@
         view.setUint8(offset + i, string.charCodeAt(i));
       }
     }
+
+    // Initial call to inject samples with default settings (0 dB)
+    injectTriggerIntoSamples(triggerAudioFiles[0].files['0'], 0);
   </script>
 </body>
 </html>
